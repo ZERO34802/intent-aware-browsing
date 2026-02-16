@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intent-Aware Browsing</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>🎯 Intent-Aware Browsing</h1>
+    </header>
+
+    <!-- Current Status Section -->
+    <section class="status-section">
+      <div id="status-indicator" class="status-indicator neutral">
+        <span class="status-icon">●</span>
+        <span id="status-text">No active intent</span>
+      </div>
+    </section>
+
+    <!-- Intent Input Section -->
+    <section class="intent-section">
+      <label for="intent-input">What's your browsing intention?</label>
+      <textarea 
+        id="intent-input" 
+        placeholder="e.g., Learn about React hooks, Research vacation destinations..."
+        rows="3"
+      ></textarea>
+      <button id="set-intent-btn" class="btn-primary">Set Intent</button>
+    </section>
+
+    <!-- Current Intent Display -->
+    <section id="current-intent-section" class="current-intent-section hidden">
+      <h3>Current Intent:</h3>
+      <p id="current-intent-text" class="intent-text"></p>
+      <button id="clear-intent-btn" class="btn-secondary">Clear Intent</button>
+    </section>
+
+    <!-- Stats Section (Optional) -->
+    <section class="stats-section hidden" id="stats-section">
+      <h3>Today's Activity</h3>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-value" id="aligned-count">0</span>
+          <span class="stat-label">Aligned</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="warning-count">0</span>
+          <span class="stat-label">Warnings</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <button id="settings-btn" class="btn-text">⚙️ Settings</button>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
