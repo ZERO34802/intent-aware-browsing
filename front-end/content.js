@@ -1,20 +1,23 @@
 // Content script — runs on web pages
-console.log('Intent-Aware Browsing content script loaded on:', window.location.href);
+console.log(
+  "Intent-Aware Browsing content script loaded on:",
+  window.location.href,
+);
 
 // Backend API Configuration
-const API_BASE_URL = 'http://localhost:8080'; // Change for production
+const API_BASE_URL = "http://localhost:8096"; // Change for production
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Content script received message:', message);
-  
-  if (message.type === 'SHOW_INTENT_MODAL') {
+  console.log("Content script received message:", message);
+
+  if (message.type === "SHOW_INTENT_MODAL") {
     try {
       showIntentModal();
-      console.log('Modal shown successfully');
+      console.log("Modal shown successfully");
       sendResponse({ success: true });
     } catch (error) {
-      console.error('Error showing modal:', error);
+      console.error("Error showing modal:", error);
       sendResponse({ success: false, error: error.message });
     }
   }
@@ -26,13 +29,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  */
 function showIntentModal() {
   // Check if modal already exists
-  if (document.getElementById('intent-modal-overlay')) {
+  if (document.getElementById("intent-modal-overlay")) {
     return;
   }
 
   // Create modal overlay
-  const overlay = document.createElement('div');
-  overlay.id = 'intent-modal-overlay';
+  const overlay = document.createElement("div");
+  overlay.id = "intent-modal-overlay";
   overlay.innerHTML = `
     <div class="intent-modal">
       <h2>What's your browsing intention?</h2>
@@ -48,10 +51,10 @@ function showIntentModal() {
       </div>
     </div>
   `;
-  
+
   // Add styles
-  const style = document.createElement('style');
-  style.id = 'intent-modal-styles';
+  const style = document.createElement("style");
+  style.id = "intent-modal-styles";
   style.textContent = `
     #intent-modal-overlay {
       position: fixed;
@@ -163,30 +166,34 @@ function showIntentModal() {
       background: #dee2e6;
     }
   `;
-  
+
   document.head.appendChild(style);
   document.body.appendChild(overlay);
-  
+
   // Focus the textarea
   setTimeout(() => {
-    document.getElementById('intent-input').focus();
+    document.getElementById("intent-input").focus();
   }, 100);
-  
+
   // Handle submit
-  document.getElementById('submit-intent').addEventListener('click', handleSubmit);
-  
+  document
+    .getElementById("submit-intent")
+    .addEventListener("click", handleSubmit);
+
   // Handle cancel
-  document.getElementById('cancel-intent').addEventListener('click', closeModal);
-  
+  document
+    .getElementById("cancel-intent")
+    .addEventListener("click", closeModal);
+
   // Handle Enter key (Ctrl/Cmd + Enter to submit)
-  document.getElementById('intent-input').addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+  document.getElementById("intent-input").addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       handleSubmit();
     }
   });
-  
+
   // Close on overlay click
-  overlay.addEventListener('click', (e) => {
+  overlay.addEventListener("click", (e) => {
     if (e.target === overlay) {
       closeModal();
     }
@@ -197,18 +204,18 @@ function showIntentModal() {
  * Detect which platform the user is on
  */
 function detectPlatform(url) {
-  if (url.includes('youtube.com')) {
-    return 'youtube';
-  } else if (url.includes('reddit.com')) {
-    return 'reddit';
-  } else if (url.includes('twitter.com') || url.includes('x.com')) {
-    return 'twitter';
-  } else if (url.includes('facebook.com')) {
-    return 'facebook';
-  } else if (url.includes('instagram.com')) {
-    return 'instagram';
+  if (url.includes("youtube.com")) {
+    return "youtube";
+  } else if (url.includes("reddit.com")) {
+    return "reddit";
+  } else if (url.includes("twitter.com") || url.includes("x.com")) {
+    return "twitter";
+  } else if (url.includes("facebook.com")) {
+    return "facebook";
+  } else if (url.includes("instagram.com")) {
+    return "instagram";
   } else {
-    return 'web'; // generic
+    return "web"; // generic
   }
 }
 
@@ -216,75 +223,78 @@ function detectPlatform(url) {
  * Handle intent submission
  */
 async function handleSubmit() {
-  const intent = document.getElementById('intent-input').value.trim();
-  
+  const intent = document.getElementById("intent-input").value.trim();
+
   if (!intent) {
-    alert('Please enter your browsing intention');
+    alert("Please enter your browsing intention");
     return;
   }
-  
+
   try {
     // 1. Detect platform
     const platform = detectPlatform(window.location.href);
     const timestamp = Date.now();
-    
-    console.log('Starting session:', { intent, platform, timestamp });
-    
+
+    console.log("Starting session:", { intent, platform, timestamp });
+
     // 2. Call backend API to create session
     const response = await fetch(`${API_BASE_URL}/api/sessions/start`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         intent: intent,
         platform: platform,
-        timestamp: timestamp
-      })
+        timestamp: timestamp,
+      }),
     });
-    
+
     if (!response.ok) {
-      throw new Error(`Backend error: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Backend error: ${response.status} ${response.statusText}`,
+      );
     }
-    
+
     const data = await response.json();
-    console.log('Session created:', data);
+    console.log("Session created:", data);
     // Expected: { sessionId: "uuid-...", status: "active", createdAt: ... }
-    
+
     // 3. Save intent + sessionId to Chrome storage
-    await chrome.storage.local.set({ 
+    await chrome.storage.local.set({
       currentIntent: intent,
       sessionId: data.sessionId,
       intentSetAt: timestamp,
       platform: platform,
-      alignmentStatus: 'monitoring'
+      alignmentStatus: "monitoring",
     });
-    
+
     // 4. Notify background script to start monitoring
-    chrome.runtime.sendMessage({ 
-      type: 'INTENT_SET', 
+    chrome.runtime.sendMessage({
+      type: "INTENT_SET",
       intent: intent,
       sessionId: data.sessionId,
-      platform: platform
+      platform: platform,
     });
-    
+
     // 5. Show success feedback
     showSuccessMessage(intent);
-    
+
     // Remove modal
     closeModal();
-    
   } catch (error) {
-    console.error('Error creating session:', error);
-    
+    console.error("Error creating session:", error);
+
     // User-friendly error message
-    let errorMsg = 'Failed to start session. ';
-    if (error.message.includes('fetch')) {
-      errorMsg += 'Cannot connect to backend server. Make sure it\'s running at ' + API_BASE_URL;
+    let errorMsg = "Failed to start session. ";
+    if (error.message.includes("fetch")) {
+      errorMsg +=
+        "Cannot connect to backend server. Make sure it's running at " +
+        API_BASE_URL;
     } else {
       errorMsg += error.message;
     }
-    
+
     alert(errorMsg);
   }
 }
@@ -293,11 +303,11 @@ async function handleSubmit() {
  * Close the modal
  */
 function closeModal() {
-  const overlay = document.getElementById('intent-modal-overlay');
-  const style = document.getElementById('intent-modal-styles');
-  
+  const overlay = document.getElementById("intent-modal-overlay");
+  const style = document.getElementById("intent-modal-styles");
+
   if (overlay) {
-    overlay.style.animation = 'fadeOut 0.2s ease';
+    overlay.style.animation = "fadeOut 0.2s ease";
     setTimeout(() => overlay.remove(), 200);
   }
   if (style) {
@@ -309,7 +319,7 @@ function closeModal() {
  * Show success message briefly
  */
 function showSuccessMessage(intent) {
-  const message = document.createElement('div');
+  const message = document.createElement("div");
   message.style.cssText = `
     position: fixed;
     top: 20px;
@@ -328,17 +338,17 @@ function showSuccessMessage(intent) {
     <strong>✓ Intent Set!</strong><br>
     <span style="opacity: 0.9; font-size: 13px;">${intent}</span>
   `;
-  
+
   document.body.appendChild(message);
-  
+
   setTimeout(() => {
-    message.style.animation = 'fadeOut 0.3s ease';
+    message.style.animation = "fadeOut 0.3s ease";
     setTimeout(() => message.remove(), 300);
   }, 3000);
 }
 
 // Add fadeOut animation
-const animations = document.createElement('style');
+const animations = document.createElement("style");
 animations.textContent = `
   @keyframes fadeOut {
     from { opacity: 1; }
