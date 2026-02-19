@@ -1,18 +1,26 @@
-// DOM elements
-const startBtn = document.getElementById('start-btn');
-const settingsBtn = document.getElementById('settings-btn');
-const endBtn = document.getElementById('end-btn');
-const noSessionView = document.getElementById('no-session-view');
-const activeSessionView = document.getElementById('active-session-view');
-const currentIntentEl = document.getElementById('current-intent');
+// DOM elements - resolve when DOM is ready
+let startBtn, settingsBtn, endBtn, noSessionView, activeSessionView, currentIntentEl;
 
-// Event listeners
-startBtn.addEventListener('click', handleStart);
-settingsBtn.addEventListener('click', openSettings);
-endBtn.addEventListener('click', handleEndSession);
+function initPopup() {
+  startBtn = document.getElementById('start-btn');
+  settingsBtn = document.getElementById('settings-btn');
+  endBtn = document.getElementById('end-btn');
+  noSessionView = document.getElementById('no-session-view');
+  activeSessionView = document.getElementById('active-session-view');
+  currentIntentEl = document.getElementById('current-intent');
 
-// Check session status on load
-checkSessionStatus();
+  if (startBtn) startBtn.addEventListener('click', handleStart);
+  if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+  if (endBtn) endBtn.addEventListener('click', handleEndSession);
+
+  checkSessionStatus();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPopup);
+} else {
+  initPopup();
+}
 
 /**
  * Handle Start button click
@@ -68,17 +76,20 @@ async function handleStart() {
  * Check if there's an active session and update UI
  */
 async function checkSessionStatus() {
-  const stored = await chrome.storage.local.get(['sessionId', 'currentIntent']);
-  
-  if (stored.sessionId && stored.currentIntent) {
-    // Show active session view
-    noSessionView.style.display = 'none';
-    activeSessionView.style.display = 'block';
-    currentIntentEl.textContent = stored.currentIntent;
-  } else {
-    // Show no session view
-    noSessionView.style.display = 'block';
-    activeSessionView.style.display = 'none';
+  try {
+    const stored = await chrome.storage.local.get(['sessionId', 'currentIntent']);
+    if (!noSessionView || !activeSessionView) return;
+
+    if (stored.sessionId && stored.currentIntent) {
+      noSessionView.style.display = 'none';
+      activeSessionView.style.display = 'block';
+      if (currentIntentEl) currentIntentEl.textContent = stored.currentIntent;
+    } else {
+      noSessionView.style.display = 'block';
+      activeSessionView.style.display = 'none';
+    }
+  } catch (e) {
+    console.error('Error checking session status:', e);
   }
 }
 
