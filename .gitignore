@@ -9,6 +9,9 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# Application properties with secrets
+back-end/backend/src/main/resources/application.properties
+
 # IDE
 .idea/
 .vscode/

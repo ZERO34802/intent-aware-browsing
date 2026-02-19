@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.intentaware.backend.repository.SessionRepository;
 import com.intentaware.backend.entity.Session;
 import com.intentaware.backend.dto.CreateSessionRequest;
+import com.intentaware.backend.dto.AlignmentCheckRequest;
+import com.intentaware.backend.dto.AlignmentCheckResponse;
 import java.time.LocalDateTime;
 import java.time.Instant;
 import java.time.ZoneId;
