@@ -1,10 +1,18 @@
 // DOM elements
 const startBtn = document.getElementById('start-btn');
 const settingsBtn = document.getElementById('settings-btn');
+const endBtn = document.getElementById('end-btn');
+const noSessionView = document.getElementById('no-session-view');
+const activeSessionView = document.getElementById('active-session-view');
+const currentIntentEl = document.getElementById('current-intent');
 
 // Event listeners
 startBtn.addEventListener('click', handleStart);
 settingsBtn.addEventListener('click', openSettings);
+endBtn.addEventListener('click', handleEndSession);
+
+// Check session status on load
+checkSessionStatus();
 
 /**
  * Handle Start button click
@@ -53,6 +61,56 @@ async function handleStart() {
   } catch (error) {
     console.error('Error starting session:', error);
     alert('Failed to start session: ' + error.message);
+  }
+}
+
+/**
+ * Check if there's an active session and update UI
+ */
+async function checkSessionStatus() {
+  const stored = await chrome.storage.local.get(['sessionId', 'currentIntent']);
+  
+  if (stored.sessionId && stored.currentIntent) {
+    // Show active session view
+    noSessionView.style.display = 'none';
+    activeSessionView.style.display = 'block';
+    currentIntentEl.textContent = stored.currentIntent;
+  } else {
+    // Show no session view
+    noSessionView.style.display = 'block';
+    activeSessionView.style.display = 'none';
+  }
+}
+
+/**
+ * Handle End Session button click
+ */
+async function handleEndSession() {
+  if (!confirm('Are you sure you want to end this session?')) {
+    return;
+  }
+
+  try {
+    // Clear session data
+    await chrome.storage.local.remove(['sessionId', 'currentIntent', 'intentSetAt', 'platform', 'alignmentStatus']);
+    
+    // Notify service worker
+    chrome.runtime.sendMessage({ type: 'INTENT_CLEARED' });
+    
+    // Notify content script (if on YouTube)
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab.url && tab.url.includes('youtube.com')) {
+      chrome.tabs.sendMessage(tab.id, { type: 'INTENT_CLEARED' });
+    }
+    
+    // Update UI
+    checkSessionStatus();
+    
+    // Close popup
+    setTimeout(() => window.close(), 300);
+  } catch (error) {
+    console.error('Error ending session:', error);
+    alert('Failed to end session: ' + error.message);
   }
 }
 

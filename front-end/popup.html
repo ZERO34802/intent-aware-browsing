@@ -13,8 +13,15 @@
     </header>
 
     <section class="main-section">
-      <p class="description">Stay focused by defining your browsing intention</p>
-      <button id="start-btn" class="btn-primary">Start Session</button>
+      <div id="no-session-view">
+        <p class="description">Stay focused by defining your browsing intention</p>
+        <button id="start-btn" class="btn-primary">Start Session</button>
+      </div>
+      <div id="active-session-view" style="display: none;">
+        <p class="description">Session Active</p>
+        <div id="current-intent" class="current-intent"></div>
+        <button id="end-btn" class="btn-secondary">End Session</button>
+      </div>
     </section>
 
     <footer>
