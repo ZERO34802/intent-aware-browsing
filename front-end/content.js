@@ -228,6 +228,77 @@ function isYouTubeVideoPage(url) {
   }
 }
 
+/**
+ * Check if current page is YouTube (any page)
+ */
+function isYouTube() {
+  try {
+    return window.location.href.includes("youtube.com");
+  } catch (e) {
+    return false;
+  }
+}
+
+const FOCUS_MODE_STYLE_ID = "intent-aware-focus-mode-styles";
+
+/**
+ * Remove focus mode styles (blur) when session is not active
+ */
+function removeFocusMode() {
+  const style = document.getElementById(FOCUS_MODE_STYLE_ID);
+  if (style) style.remove();
+}
+
+/**
+ * Apply focus mode on YouTube when session is active: blur homepage grid and sidebar to reduce distraction
+ */
+function applyFocusMode() {
+  if (window.__INTENT_AWARE_CONTEXT_INVALIDATED__) return;
+  if (!isYouTube()) return;
+
+  removeFocusMode();
+
+  const style = document.createElement("style");
+  style.id = FOCUS_MODE_STYLE_ID;
+  style.textContent = `
+    /* Sidebar recommendations on watch page */
+    ytd-watch-flexy #secondary {
+      filter: blur(12px);
+      pointer-events: none;
+      user-select: none;
+    }
+    /* Homepage video grid */
+    ytd-rich-grid-renderer {
+      filter: blur(12px);
+      pointer-events: none;
+      user-select: none;
+    }
+  `;
+  try {
+    document.head.appendChild(style);
+  } catch (e) {
+    console.log("[IntentAware] Could not apply focus mode:", e.message || e);
+  }
+}
+
+/**
+ * Sync focus mode with session state: apply if session active on YouTube, else remove
+ */
+function syncFocusMode() {
+  if (window.__INTENT_AWARE_CONTEXT_INVALIDATED__) return;
+  chrome.storage.local.get(["sessionId"]).then((stored) => {
+    if (window.__INTENT_AWARE_CONTEXT_INVALIDATED__) return;
+    if (stored.sessionId && isYouTube()) {
+      applyFocusMode();
+    } else {
+      removeFocusMode();
+    }
+  }).catch((e) => {
+    if (isContextInvalidated(e)) markContextInvalidated();
+    else removeFocusMode();
+  });
+}
+
 // Declare variables used by functions (will be initialized later)
 let lastUrl = "";
 let lastVideoId = null;
@@ -1250,7 +1321,7 @@ function closeDurationPrompt() {
   }
 }
 
-// Start monitoring when session is active
+// Start monitoring and focus mode when session is active
 try {
   chrome.storage.local
     .get(["sessionId"])
@@ -1262,6 +1333,7 @@ try {
           else console.error("Error starting URL monitoring:", e);
         });
       }
+      syncFocusMode();
     })
     .catch((e) => {
       if (isContextInvalidated(e)) markContextInvalidated();
@@ -1271,19 +1343,17 @@ try {
   if (isContextInvalidated(e)) markContextInvalidated();
 }
 
-// Also start monitoring after intent is set
+// When session starts or ends, update monitoring and focus mode
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (window.__INTENT_AWARE_CONTEXT_INVALIDATED__) return;
-  if (
-    namespace === "local" &&
-    changes.sessionId &&
-    changes.sessionId.newValue
-  ) {
+  if (namespace !== "local" || !changes.sessionId) return;
+  if (changes.sessionId.newValue) {
     startUrlMonitoring().catch((e) => {
       if (isContextInvalidated(e)) markContextInvalidated();
       else console.error("Error starting URL monitoring:", e);
     });
   }
+  syncFocusMode();
 });
 
 })(); // End IIFE - entire content script
