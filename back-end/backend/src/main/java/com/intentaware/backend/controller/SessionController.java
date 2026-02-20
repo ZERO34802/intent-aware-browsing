@@ -16,6 +16,8 @@ import com.intentaware.backend.dto.AlignmentCheckRequest;
 import com.intentaware.backend.dto.AlignmentCheckResponse;
 import com.intentaware.backend.dto.gemini.GeminiResponse;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.ZoneId;
 import java.util.Optional;
 
@@ -23,6 +25,8 @@ import java.util.Optional;
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class SessionController {
+  private static final Logger log = LoggerFactory.getLogger(SessionController.class);
+
   @Autowired
   private SessionService sessionService;
 
@@ -56,6 +60,7 @@ public class SessionController {
     try {
       geminiResponse = geminiService.checkAlignment(intent, request.getScreenshot());
     } catch (Exception e) {
+      log.error("Alignment check failed for session {}: {}", request.getSessionId(), e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("Alignment check failed: " + e.getMessage());
     }
 
