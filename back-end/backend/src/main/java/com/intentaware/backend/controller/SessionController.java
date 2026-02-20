@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.intentaware.backend.service.SessionService;
 import com.intentaware.backend.service.GeminiService;
+import com.intentaware.backend.service.AlignmentService;
 import com.intentaware.backend.repository.SessionRepository;
 import org.springframework.http.ResponseEntity;
 import com.intentaware.backend.entity.Session;
@@ -34,6 +35,9 @@ public class SessionController {
   private GeminiService geminiService;
 
   @Autowired
+  private AlignmentService alignmentService;
+
+  @Autowired
   private SessionRepository sessionRepository;
 
   @PostMapping("/sessions/start")
@@ -47,6 +51,13 @@ public class SessionController {
 
   @PostMapping("/alignment/check")
   public ResponseEntity<?> checkAlignment(@RequestBody AlignmentCheckRequest request) {
+
+    //Check if the alignment is already cached and if not create it in the db
+    AlignmentCheckResponse checkIfCached = alignmentService.checkIfCached(request);
+    if(checkIfCached != null) {
+      return ResponseEntity.status(HttpStatus.OK).body(checkIfCached);
+    }
+    
     // 1. Get session from database to retrieve intent
     Optional<Session> sessionOpt = sessionRepository.findById(request.getSessionId());
     if (sessionOpt.isEmpty()) {
@@ -82,6 +93,9 @@ public class SessionController {
     boolean aligned = responseText.toUpperCase().trim().startsWith("ALIGNED");
     double confidence = aligned ? 0.9 : 0.2;
     long timestamp = System.currentTimeMillis();
+
+    // 4. Create alignment cache entry
+    alignmentService.createAlignmentCache(request.getSessionId(), request.getVideoId(), aligned, confidence, responseText);
 
     // 5. Build and return AlignmentCheckResponse
     AlignmentCheckResponse response = new AlignmentCheckResponse(aligned, confidence, timestamp, responseText);
