@@ -1119,11 +1119,33 @@ function showMisalignmentModal(reason, intent) {
     document.head.appendChild(style);
     document.body.appendChild(overlay);
 
-    // Handle Go Back button - navigate to YouTube home/search
-    document.getElementById("go-back-btn").addEventListener("click", () => {
-      // Navigate to YouTube home page
-      window.location.href = "https://www.youtube.com";
+    // Handle Go Back button - fetch last aligned video or go to home + show search prompt
+    document.getElementById("go-back-btn").addEventListener("click", async () => {
       closeMisalignmentModal();
+      try {
+        const stored = await chrome.storage.local.get(["sessionId"]);
+        const sessionId = stored.sessionId;
+        if (!sessionId) {
+          await chrome.storage.local.set({ showSearchPromptOnLoad: true });
+          window.location.href = "https://www.youtube.com";
+          return;
+        }
+        const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/last-aligned-video`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.videoUrl) {
+            window.location.href = data.videoUrl;
+            return;
+          }
+        }
+        // 404 or no videoUrl: go to home and show search prompt
+        await chrome.storage.local.set({ showSearchPromptOnLoad: true });
+        window.location.href = "https://www.youtube.com";
+      } catch (e) {
+        console.error("[IntentAware] Go back failed:", e);
+        chrome.storage.local.set({ showSearchPromptOnLoad: true });
+        window.location.href = "https://www.youtube.com";
+      }
     });
 
     // Handle Continue Anyway button
@@ -1137,6 +1159,40 @@ function showMisalignmentModal(reason, intent) {
   } catch (e) {
     console.error("Error showing misalignment modal:", e);
   }
+}
+
+/**
+ * Show toast prompting user to search for aligned content (e.g. after going home with no last-aligned video).
+ */
+function showSearchPromptToast() {
+  if (document.getElementById("intent-aware-search-prompt-toast")) return;
+  const toast = document.createElement("div");
+  toast.id = "intent-aware-search-prompt-toast";
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 2147483647;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    animation: slideIn 0.3s ease;
+    max-width: 90%;
+    text-align: center;
+  `;
+  toast.textContent = "Search for something aligned with your intent.";
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.style.animation = "fadeOut 0.3s ease";
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 4000);
 }
 
 /**
@@ -1321,12 +1377,17 @@ function closeDurationPrompt() {
   }
 }
 
-// Start monitoring and focus mode when session is active
+// Start monitoring and focus mode when session is active; show search prompt if we landed on home after "go back" with no last-aligned video
 try {
   chrome.storage.local
-    .get(["sessionId"])
+    .get(["sessionId", "showSearchPromptOnLoad"])
     .then((stored) => {
       if (window.__INTENT_AWARE_CONTEXT_INVALIDATED__) return;
+      if (stored.showSearchPromptOnLoad && isYouTube() && !isYouTubeVideoPage(window.location.href)) {
+        chrome.storage.local.remove(["showSearchPromptOnLoad"]);
+        if (document.body) showSearchPromptToast();
+        else document.addEventListener("DOMContentLoaded", () => showSearchPromptToast());
+      }
       if (stored.sessionId) {
         startUrlMonitoring().catch((e) => {
           if (isContextInvalidated(e)) markContextInvalidated();

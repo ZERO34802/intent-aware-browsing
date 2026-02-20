@@ -1,6 +1,8 @@
 package com.intentaware.backend.controller;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import com.intentaware.backend.dto.SessionResponse;
 import com.intentaware.backend.dto.CreateSessionRequest;
 import com.intentaware.backend.dto.AlignmentCheckRequest;
 import com.intentaware.backend.dto.AlignmentCheckResponse;
+import com.intentaware.backend.dto.LastAlignedVideoResponse;
 import com.intentaware.backend.dto.gemini.GeminiResponse;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.slf4j.Logger;
@@ -100,5 +103,14 @@ public class SessionController {
     // 5. Build and return AlignmentCheckResponse
     AlignmentCheckResponse response = new AlignmentCheckResponse(aligned, confidence, timestamp, responseText);
     return ResponseEntity.ok(response);
+  }
+
+  @GetMapping("/sessions/{sessionId}/last-aligned-video")
+  public ResponseEntity<?> getLastAlignedVideo(@PathVariable String sessionId) {
+    LastAlignedVideoResponse lastAlignedVideo = alignmentService.getLastAlignedVideo(sessionId);
+    if(lastAlignedVideo == null) {
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+    }
+    return ResponseEntity.status(HttpStatus.OK).body(lastAlignedVideo);
   }
 }
