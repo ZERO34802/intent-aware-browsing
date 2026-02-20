@@ -13,4 +13,6 @@ public interface AlignmentCacheRepository extends JpaRepository<AlignmentCache, 
    * Returns empty if no cache entry exists (cache miss).
    */
   Optional<AlignmentCache> findBySessionIdAndVideoId(String sessionId, String videoId);
+
+  Optional<AlignmentCache> findFirstBySessionIdAndAlignedTrueOrderByCreatedAtDesc(String sessionId);
 }

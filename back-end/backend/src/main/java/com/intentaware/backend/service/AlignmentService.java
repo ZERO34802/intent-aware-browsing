@@ -7,6 +7,7 @@ import com.intentaware.backend.repository.AlignmentCacheRepository;
 import com.intentaware.backend.entity.AlignmentCache;
 import com.intentaware.backend.dto.AlignmentCheckRequest;
 import com.intentaware.backend.dto.AlignmentCheckResponse;
+import com.intentaware.backend.dto.LastAlignedVideoResponse;
 import java.time.ZoneId;
 import java.util.Optional;
 
@@ -33,5 +34,16 @@ public class AlignmentService {
   public void createAlignmentCache(String sessionId, String videoId, Boolean aligned, Double confidence, String reason) {
     AlignmentCache alignmentCache = new AlignmentCache(sessionId, videoId, aligned, confidence, reason);
     alignmentCacheRepository.save(alignmentCache);
+  }
+
+  public LastAlignedVideoResponse getLastAlignedVideo(String sessionId) {
+    Optional<AlignmentCache> alignmentCache = alignmentCacheRepository.findFirstBySessionIdAndAlignedTrueOrderByCreatedAtDesc(sessionId);
+    if (alignmentCache.isPresent()) {
+      AlignmentCache cached = alignmentCache.get();
+      String url = "https://www.youtube.com/watch?v=" + cached.getVideoId();
+      return new LastAlignedVideoResponse(cached.getVideoId(), url);
+    }
+    log.debug("No aligned video found for sessionId={}", sessionId);
+    return null;
   }
 }
