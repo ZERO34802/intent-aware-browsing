@@ -1,9 +1,10 @@
 package com.intentaware.backend.dto.gemini;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.intentaware.backend.dto.gemini.InlineData;
-import java.util.List;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Part {
   @JsonProperty("text")
   private String text;

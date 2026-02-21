@@ -20,7 +20,9 @@ import com.intentaware.backend.dto.AlignmentCheckRequest;
 import com.intentaware.backend.dto.AlignmentCheckResponse;
 import com.intentaware.backend.dto.LastAlignedVideoResponse;
 import com.intentaware.backend.dto.gemini.GeminiResponse;
+import com.intentaware.backend.service.SessionSummaryService;
 import com.intentaware.backend.service.SessionVideoNotesService;
+import com.intentaware.backend.dto.SessionSummaryResponse;
 import com.intentaware.backend.dto.SessionVideoNotesRequest;
 import com.intentaware.backend.dto.SessionVideoNotesResponse;
 import org.slf4j.Logger;
@@ -48,6 +50,9 @@ public class SessionController {
 
   @Autowired
   private SessionVideoNotesService sessionVideoNotesService;
+
+  @Autowired
+  private SessionSummaryService sessionSummaryService;
 
   @PostMapping("/sessions/start")
   public ResponseEntity<SessionResponse> createSession(@RequestBody CreateSessionRequest request) {
@@ -124,5 +129,20 @@ public class SessionController {
   public ResponseEntity<?> createSessionVideoNotes(@RequestBody SessionVideoNotesRequest request) {
     SessionVideoNotesResponse response = sessionVideoNotesService.createSessionVideoNotes(request);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
+  }
+
+  @GetMapping("/sessions/{sessionId}/summary")
+  public ResponseEntity<?> getSessionSummary(@PathVariable String sessionId) {
+    try {
+      SessionSummaryResponse response = sessionSummaryService.getOrCreateSummary(sessionId);
+      return ResponseEntity.ok(response);
+    } catch (IllegalStateException e) {
+      log.error("Summary generation failed for session {}: {}", sessionId, e.getMessage());
+      return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(e.getMessage());
+    } catch (Exception e) {
+      log.error("Unexpected error getting summary for session {}: {}", sessionId, e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body("Internal error: " + e.getMessage() + ". Check server logs for details.");
+    }
   }
 }
