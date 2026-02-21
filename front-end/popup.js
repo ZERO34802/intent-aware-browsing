@@ -1,10 +1,11 @@
 // DOM elements - resolve when DOM is ready
-let startBtn, settingsBtn, endBtn, noSessionView, activeSessionView, currentIntentEl;
+let startBtn, settingsBtn, endBtn, addNotesBtn, noSessionView, activeSessionView, currentIntentEl;
 
 function initPopup() {
   startBtn = document.getElementById('start-btn');
   settingsBtn = document.getElementById('settings-btn');
   endBtn = document.getElementById('end-btn');
+  addNotesBtn = document.getElementById('add-notes-btn');
   noSessionView = document.getElementById('no-session-view');
   activeSessionView = document.getElementById('active-session-view');
   currentIntentEl = document.getElementById('current-intent');
@@ -12,6 +13,7 @@ function initPopup() {
   if (startBtn) startBtn.addEventListener('click', handleStart);
   if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
   if (endBtn) endBtn.addEventListener('click', handleEndSession);
+  if (addNotesBtn) addNotesBtn.addEventListener('click', handleAddNotes);
 
   checkSessionStatus();
 }
@@ -90,6 +92,42 @@ async function checkSessionStatus() {
     }
   } catch (e) {
     console.error('Error checking session status:', e);
+  }
+}
+
+/**
+ * Handle Add notes for this video - show notes modal on current tab if it's a YouTube video
+ */
+async function handleAddNotes() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url || !tab.url.includes('youtube.com/watch')) {
+      alert('Open a YouTube video page first, then click "Add notes for this video".');
+      return;
+    }
+    const match = tab.url.match(/[?&]v=([^&]+)/);
+    const videoId = match ? match[1] : null;
+    if (!videoId) {
+      alert('Could not detect video. Make sure you are on a YouTube watch page.');
+      return;
+    }
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+    } catch (e) { /* already loaded */ }
+    await new Promise(r => setTimeout(r, 100));
+    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_VIDEO_NOTES_MODAL', videoId: videoId }, (response) => {
+      if (chrome.runtime.lastError) {
+        alert('Could not open notes. Refresh the YouTube page (F5) and try again.');
+        return;
+      }
+    });
+    setTimeout(() => window.close(), 200);
+  } catch (error) {
+    console.error('Error opening notes:', error);
+    alert('Failed to open notes: ' + error.message);
   }
 }
 

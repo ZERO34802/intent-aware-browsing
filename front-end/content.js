@@ -335,6 +335,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Handle SHOW_VIDEO_NOTES_MODAL from popup (Add notes for this video)
+  if (message.type === "SHOW_VIDEO_NOTES_MODAL" && message.videoId) {
+    try {
+      showVideoNotesModal(message.videoId);
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error("Error showing video notes modal:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
   // Handle ALIGNMENT_RESULT from service worker
   if (message.type === "ALIGNMENT_RESULT") {
     console.log("[IntentAware] Received ALIGNMENT_RESULT:", { videoId: message.videoId, aligned: message.aligned, reason: message.reason });
@@ -1375,6 +1387,115 @@ function closeDurationPrompt() {
   if (style) {
     style.remove();
   }
+}
+
+/**
+ * Show modal to add notes (and optional transcript) for the current session and video.
+ * Opened from extension popup "Add notes for this video". Submits to POST /api/sessions/video-notes.
+ */
+function showVideoNotesModal(videoId) {
+  if (window.__INTENT_AWARE_CONTEXT_INVALIDATED__) return;
+  if (document.getElementById("video-notes-modal-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "video-notes-modal-overlay";
+  overlay.innerHTML = `
+    <div class="video-notes-modal">
+      <h2>Add notes for this video</h2>
+      <p class="modal-subtitle">What did you learn or take away? (optional)</p>
+      <textarea id="video-notes-input" placeholder="e.g., Key points, takeaways..." rows="4"></textarea>
+      <p class="modal-subtitle" style="margin-top: 12px;">Transcript (optional – paste if you have it)</p>
+      <textarea id="video-transcript-input" placeholder="Leave blank or paste transcript..." rows="3"></textarea>
+      <div class="button-group">
+        <button id="video-notes-submit" class="btn-submit">Save notes</button>
+        <button id="video-notes-cancel" class="btn-cancel">Skip</button>
+      </div>
+    </div>
+  `;
+
+  const style = document.createElement("style");
+  style.id = "video-notes-modal-styles";
+  style.textContent = `
+    #video-notes-modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 2147483647;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      animation: fadeIn 0.2s ease;
+    }
+    .video-notes-modal {
+      background: white; padding: 28px; border-radius: 16px;
+      width: 500px; max-width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      animation: slideUp 0.3s ease;
+    }
+    .video-notes-modal h2 { margin: 0 0 8px 0; font-size: 22px; color: #333; }
+    .video-notes-modal .modal-subtitle { margin: 0 0 8px 0; font-size: 13px; color: #666; }
+    .video-notes-modal textarea {
+      width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #ddd;
+      border-radius: 8px; font-size: 14px; resize: vertical;
+    }
+    .video-notes-modal .button-group { display: flex; gap: 12px; margin-top: 20px; }
+    .video-notes-modal .btn-submit { padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .video-notes-modal .btn-cancel { padding: 12px 24px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+  `;
+
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+
+  document.getElementById("video-notes-cancel").addEventListener("click", () => {
+    closeVideoNotesModal();
+  });
+
+  document.getElementById("video-notes-submit").addEventListener("click", async () => {
+    const notesEl = document.getElementById("video-notes-input");
+    const transcriptEl = document.getElementById("video-transcript-input");
+    const notes = notesEl ? notesEl.value.trim() : "";
+    const transcript = transcriptEl ? transcriptEl.value.trim() : null;
+    let sessionId;
+    try {
+      const stored = await chrome.storage.local.get(["sessionId"]);
+      sessionId = stored.sessionId;
+    } catch (e) {
+      closeVideoNotesModal();
+      return;
+    }
+    if (!sessionId) {
+      closeVideoNotesModal();
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/video-notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: sessionId,
+          videoId: videoId,
+          notes: notes || null,
+          transcript: transcript || null,
+        }),
+      });
+      if (response.ok) {
+        showSuccessMessage("Notes saved");
+      }
+    } catch (e) {
+      console.error("[IntentAware] Failed to save video notes:", e);
+    }
+    closeVideoNotesModal();
+  });
+}
+
+/**
+ * Close video notes modal
+ */
+function closeVideoNotesModal() {
+  const overlay = document.getElementById("video-notes-modal-overlay");
+  const style = document.getElementById("video-notes-modal-styles");
+  if (overlay) {
+    overlay.style.animation = "fadeOut 0.2s ease";
+    setTimeout(() => overlay.remove(), 200);
+  }
+  if (style) style.remove();
 }
 
 // Start monitoring and focus mode when session is active; show search prompt if we landed on home after "go back" with no last-aligned video

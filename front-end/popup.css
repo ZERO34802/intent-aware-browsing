@@ -76,6 +76,35 @@ button {
   transform: translateY(0);
 }
 
+.btn-add-notes {
+  width: 100%;
+  padding: 12px 20px;
+  background: #f0f4ff;
+  color: #667eea;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 12px;
+  border: 1px solid #667eea;
+}
+
+.btn-add-notes:hover {
+  background: #e8ecff;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 12px 20px;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.btn-secondary:hover {
+  background: #d1d5db;
+}
+
 .btn-text {
   background: transparent;
   color: #667eea;
