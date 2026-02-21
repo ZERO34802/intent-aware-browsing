@@ -347,6 +347,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Handle SHOW_SESSION_SUMMARY from popup (after "End session" → "Get summary?")
+  if (message.type === "SHOW_SESSION_SUMMARY" && message.sessionId) {
+    try {
+      showSessionSummaryModal(message.sessionId);
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error("Error showing session summary modal:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
   // Handle ALIGNMENT_RESULT from service worker
   if (message.type === "ALIGNMENT_RESULT") {
     console.log("[IntentAware] Received ALIGNMENT_RESULT:", { videoId: message.videoId, aligned: message.aligned, reason: message.reason });
@@ -1387,6 +1399,208 @@ function closeDurationPrompt() {
   if (style) {
     style.remove();
   }
+}
+
+/**
+ * Show session summary modal: fetch GET /api/sessions/{sessionId}/summary, show summary with typing effect,
+ * and if educational, "Take a quiz" with one-question-at-a-time UI. On close, clear session storage.
+ */
+function showSessionSummaryModal(sessionId) {
+  if (window.__INTENT_AWARE_CONTEXT_INVALIDATED__) return;
+  if (document.getElementById("session-summary-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "session-summary-overlay";
+  overlay.innerHTML = `
+    <div class="session-summary-modal">
+      <div id="session-summary-loading">Loading your session summary…</div>
+      <div id="session-summary-content" style="display:none;">
+        <h2>Session Summary</h2>
+        <p id="session-summary-text" class="summary-text"></p>
+        <div id="session-summary-quiz-cta" style="display:none;">
+          <button id="session-summary-take-quiz" class="btn-quiz">Take a quiz</button>
+        </div>
+        <div id="session-summary-quiz" style="display:none;">
+          <p id="quiz-question" class="quiz-question"></p>
+          <div id="quiz-options" class="quiz-options"></div>
+          <div id="quiz-feedback" class="quiz-feedback" style="display:none;"></div>
+          <button id="quiz-next" class="btn-next" style="display:none;">Next</button>
+        </div>
+        <div id="session-summary-done" style="display:none;">
+          <p id="quiz-score" class="quiz-score"></p>
+          <button id="session-summary-close" class="btn-close">Done</button>
+        </div>
+        <button id="session-summary-close-early" class="btn-close-early" style="display:none;">Close</button>
+      </div>
+      <div id="session-summary-error" style="display:none;">
+        <p>Could not load summary. You can try again later.</p>
+        <button id="session-summary-error-close" class="btn-close">Close</button>
+      </div>
+    </div>
+  `;
+
+  const style = document.createElement("style");
+  style.id = "session-summary-modal-styles";
+  style.textContent = `
+    #session-summary-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 2147483647;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      animation: fadeIn 0.2s ease;
+    }
+    .session-summary-modal {
+      background: white; padding: 28px; border-radius: 16px;
+      width: 560px; max-width: 92vw; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      animation: slideUp 0.3s ease;
+    }
+    .session-summary-modal h2 { margin: 0 0 16px 0; font-size: 22px; color: #333; }
+    .session-summary-modal .summary-text {
+      margin: 0 0 20px 0; color: #444; font-size: 15px; line-height: 1.6; white-space: pre-wrap;
+    }
+    .session-summary-modal .btn-quiz {
+      padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
+    }
+    .session-summary-modal .btn-quiz:hover { opacity: 0.95; transform: translateY(-1px); }
+    .session-summary-modal .quiz-question { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #333; }
+    .session-summary-modal .quiz-options { display: flex; flex-direction: column; gap: 8px; }
+    .session-summary-modal .quiz-option {
+      padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer;
+      text-align: left; font-size: 14px; background: #fff; transition: border-color 0.2s, background 0.2s;
+    }
+    .session-summary-modal .quiz-option:hover:not(.disabled) { border-color: #667eea; background: #f8f9ff; }
+    .session-summary-modal .quiz-option.correct { border-color: #22c55e; background: #f0fdf4; }
+    .session-summary-modal .quiz-option.incorrect { border-color: #ef4444; background: #fef2f2; }
+    .session-summary-modal .quiz-option.disabled { cursor: default; opacity: 0.8; }
+    .session-summary-modal .quiz-feedback { margin: 12px 0; font-size: 14px; font-weight: 600; }
+    .session-summary-modal .quiz-feedback.correct { color: #22c55e; }
+    .session-summary-modal .quiz-feedback.incorrect { color: #ef4444; }
+    .session-summary-modal .btn-next, .session-summary-modal .btn-close {
+      margin-top: 16px; padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
+    }
+    .session-summary-modal .btn-next { background: #667eea; color: white; }
+    .session-summary-modal .btn-close { background: #333; color: white; }
+    .session-summary-modal .btn-close-early { margin-top: 12px; background: transparent; color: #666; border: none; cursor: pointer; font-size: 14px; }
+    .session-summary-modal .quiz-score { margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #333; }
+  `;
+
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+
+  function closeSummaryModal() {
+    const ov = document.getElementById("session-summary-overlay");
+    const st = document.getElementById("session-summary-modal-styles");
+    if (ov) { ov.style.animation = "fadeOut 0.2s ease"; setTimeout(() => ov.remove(), 200); }
+    if (st) st.remove();
+    chrome.storage.local.remove(["sessionId", "currentIntent", "intentSetAt", "platform", "alignmentStatus"]);
+    chrome.runtime.sendMessage({ type: "INTENT_CLEARED" });
+  }
+
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeSummaryModal(); });
+
+  (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/summary`);
+      if (!response.ok) {
+        document.getElementById("session-summary-loading").style.display = "none";
+        document.getElementById("session-summary-error").style.display = "block";
+        document.getElementById("session-summary-error-close").onclick = closeSummaryModal;
+        return;
+      }
+      const data = await response.json();
+      document.getElementById("session-summary-loading").style.display = "none";
+      document.getElementById("session-summary-content").style.display = "block";
+      document.getElementById("session-summary-close-early").style.display = "block";
+
+      const summaryEl = document.getElementById("session-summary-text");
+      const fullText = data.summary || "No summary available.";
+      let i = 0;
+      const typingMs = 18;
+      function typeNext() {
+        if (i <= fullText.length) {
+          summaryEl.textContent = fullText.slice(0, i);
+          i++;
+          setTimeout(typeNext, typingMs);
+        } else {
+          if (data.isEducational && data.quizQuestions && data.quizQuestions.length > 0) {
+            document.getElementById("session-summary-quiz-cta").style.display = "block";
+          }
+        }
+      }
+      typeNext();
+
+      const quizQuestions = data.quizQuestions || [];
+      let quizIndex = 0;
+      let correctCount = 0;
+
+      document.getElementById("session-summary-take-quiz").addEventListener("click", () => {
+        document.getElementById("session-summary-quiz-cta").style.display = "none";
+        document.getElementById("session-summary-quiz").style.display = "block";
+        showQuizQuestion(0);
+      });
+
+      function showQuizQuestion(index) {
+        if (index >= quizQuestions.length) {
+          document.getElementById("session-summary-quiz").style.display = "none";
+          document.getElementById("session-summary-done").style.display = "block";
+          document.getElementById("quiz-score").textContent = "You got " + correctCount + " of " + quizQuestions.length + " correct.";
+          document.getElementById("session-summary-close-early").style.display = "none";
+          return;
+        }
+        const q = quizQuestions[index];
+        document.getElementById("quiz-question").textContent = (index + 1) + ". " + (q.question || "");
+        const optsEl = document.getElementById("quiz-options");
+        optsEl.innerHTML = "";
+        (q.options || []).forEach((opt, oi) => {
+          const btn = document.createElement("button");
+          btn.className = "quiz-option";
+          btn.textContent = opt;
+          btn.dataset.index = String(oi);
+          optsEl.appendChild(btn);
+        });
+        document.getElementById("quiz-feedback").style.display = "none";
+        document.getElementById("quiz-next").style.display = "none";
+
+        const correctIndex = q.correctIndex != null ? q.correctIndex : 0;
+        optsEl.querySelectorAll(".quiz-option").forEach((btn) => {
+          btn.addEventListener("click", function () {
+            if (this.classList.contains("disabled")) return;
+            optsEl.querySelectorAll(".quiz-option").forEach((b) => b.classList.add("disabled"));
+            const chosen = parseInt(this.dataset.index, 10);
+            if (chosen === correctIndex) {
+              this.classList.add("correct");
+              correctCount++;
+              document.getElementById("quiz-feedback").textContent = "Correct!";
+              document.getElementById("quiz-feedback").className = "quiz-feedback correct";
+            } else {
+              this.classList.add("incorrect");
+              optsEl.querySelectorAll(".quiz-option")[correctIndex].classList.add("correct");
+              document.getElementById("quiz-feedback").textContent = "Incorrect. The correct answer is shown.";
+              document.getElementById("quiz-feedback").className = "quiz-feedback incorrect";
+            }
+            document.getElementById("quiz-feedback").style.display = "block";
+            document.getElementById("quiz-next").style.display = "inline-block";
+          });
+        });
+
+        document.getElementById("quiz-next").onclick = () => {
+          quizIndex = index + 1;
+          showQuizQuestion(quizIndex);
+        };
+      }
+
+      document.getElementById("session-summary-close").addEventListener("click", closeSummaryModal);
+      document.getElementById("session-summary-close-early").addEventListener("click", closeSummaryModal);
+    } catch (err) {
+      console.error("[IntentAware] Session summary fetch error:", err);
+      document.getElementById("session-summary-loading").style.display = "none";
+      document.getElementById("session-summary-error").style.display = "block";
+      document.getElementById("session-summary-error-close").onclick = closeSummaryModal;
+    }
+  })();
 }
 
 /**

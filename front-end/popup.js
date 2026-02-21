@@ -132,7 +132,7 @@ async function handleAddNotes() {
 }
 
 /**
- * Handle End Session button click
+ * Handle End Session button click: confirm, then offer "Get session summary?"
  */
 async function handleEndSession() {
   if (!confirm('Are you sure you want to end this session?')) {
@@ -140,26 +140,44 @@ async function handleEndSession() {
   }
 
   try {
-    // Clear session data
-    await chrome.storage.local.remove(['sessionId', 'currentIntent', 'intentSetAt', 'platform', 'alignmentStatus']);
-    
-    // Notify service worker
-    chrome.runtime.sendMessage({ type: 'INTENT_CLEARED' });
-    
-    // Notify content script (if on YouTube)
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab.url && tab.url.includes('youtube.com')) {
-      chrome.tabs.sendMessage(tab.id, { type: 'INTENT_CLEARED' });
+    const stored = await chrome.storage.local.get(['sessionId']);
+    const sessionId = stored.sessionId;
+
+    const wantSummary = confirm('Would you like a session summary before you go?');
+    if (wantSummary && sessionId) {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('edge://') && !tab.url.startsWith('about:')) {
+        try {
+          await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+          await new Promise(r => setTimeout(r, 100));
+          chrome.tabs.sendMessage(tab.id, { type: 'SHOW_SESSION_SUMMARY', sessionId }, () => {
+            if (chrome.runtime.lastError) {
+              console.warn('Could not show summary on tab:', chrome.runtime.lastError.message);
+            }
+          });
+        } catch (e) {
+          console.warn('Could not inject or send summary request:', e.message);
+        }
+      }
+      // Don't clear storage yet; content script will clear when summary modal is closed
+    } else {
+      await clearSessionAndNotify();
     }
-    
-    // Update UI
+
     checkSessionStatus();
-    
-    // Close popup
-    setTimeout(() => window.close(), 300);
+    setTimeout(() => window.close(), 200);
   } catch (error) {
     console.error('Error ending session:', error);
     alert('Failed to end session: ' + error.message);
+  }
+}
+
+async function clearSessionAndNotify() {
+  await chrome.storage.local.remove(['sessionId', 'currentIntent', 'intentSetAt', 'platform', 'alignmentStatus']);
+  chrome.runtime.sendMessage({ type: 'INTENT_CLEARED' });
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.url?.includes('youtube.com')) {
+    chrome.tabs.sendMessage(tab.id, { type: 'INTENT_CLEARED' }).catch(() => {});
   }
 }
 
