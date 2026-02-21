@@ -1,5 +1,6 @@
 package com.intentaware.backend.repository;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -15,4 +16,6 @@ public interface AlignmentCacheRepository extends JpaRepository<AlignmentCache, 
   Optional<AlignmentCache> findBySessionIdAndVideoId(String sessionId, String videoId);
 
   Optional<AlignmentCache> findFirstBySessionIdAndAlignedTrueOrderByCreatedAtDesc(String sessionId);
+
+  List<AlignmentCache> findAllBySessionIdOrderByCreatedAtAsc(String sessionId);
 }
