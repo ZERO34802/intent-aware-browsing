@@ -1,6 +1,7 @@
 package com.intentaware.backend.controller;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +20,9 @@ import com.intentaware.backend.dto.AlignmentCheckRequest;
 import com.intentaware.backend.dto.AlignmentCheckResponse;
 import com.intentaware.backend.dto.LastAlignedVideoResponse;
 import com.intentaware.backend.dto.gemini.GeminiResponse;
-import org.springframework.web.bind.annotation.CrossOrigin;
+import com.intentaware.backend.service.SessionVideoNotesService;
+import com.intentaware.backend.dto.SessionVideoNotesRequest;
+import com.intentaware.backend.dto.SessionVideoNotesResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.ZoneId;
@@ -42,6 +45,9 @@ public class SessionController {
 
   @Autowired
   private SessionRepository sessionRepository;
+
+  @Autowired
+  private SessionVideoNotesService sessionVideoNotesService;
 
   @PostMapping("/sessions/start")
   public ResponseEntity<SessionResponse> createSession(@RequestBody CreateSessionRequest request) {
@@ -112,5 +118,11 @@ public class SessionController {
       return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
     return ResponseEntity.status(HttpStatus.OK).body(lastAlignedVideo);
+  }
+
+  @PostMapping("/sessions/video-notes") 
+  public ResponseEntity<?> createSessionVideoNotes(@RequestBody SessionVideoNotesRequest request) {
+    SessionVideoNotesResponse response = sessionVideoNotesService.createSessionVideoNotes(request);
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 }
