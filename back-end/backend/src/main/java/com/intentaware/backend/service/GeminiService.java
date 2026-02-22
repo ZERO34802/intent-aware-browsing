@@ -80,8 +80,8 @@ public class GeminiService {
 
   private static final String SUMMARY_INSTRUCTIONS =
       "Based on the following session recap data, generate a concise session summary with some constructive feedback if required. "
-          + "If the content is educational (e.g. tutorial, course, explainer), set isEducational to true and generate 3–5 quiz questions with exactly 4 options each and correctIndex 0–3. "
-          + "If not educational, set isEducational to false and set quizQuestions to null.\n\n"
+          + "If the content is educational and related to learning a concept,technical skill or studying related (e.g. tutorial, course, explainer), set isEducational to true and generate 3–5 quiz questions with exactly 4 options each and correctIndex 0–3. "
+          + "If not , set isEducational to false and set quizQuestions to null.\n\n"
           + "Respond with a single JSON object only, no markdown or extra text. Use this exact structure:\n"
           + "{\"summary\": \"...\", \"isEducational\": true or false, \"quizQuestions\": [{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correctIndex\": 0}] or null}\n\n"
           + "Session recap data (JSON):\n";
