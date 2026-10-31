@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intent-Aware Browsing</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎯 Intent-Aware Browsing</h1>
+    </header>
+
+    <section class="main-section">
+      <div id="no-session-view">
+        <p class="description">Stay focused by defining your browsing intention</p>
+        <button id="start-btn" class="btn-primary">Start Session</button>
+      </div>
+      <div id="active-session-view" style="display: none;">
+        <p class="description">Session Active</p>
+        <div id="current-intent" class="current-intent"></div>
+        <button id="add-notes-btn" class="btn-add-notes">Add notes for this video</button>
+        <button id="end-btn" class="btn-secondary">End Session</button>
+      </div>
+    </section>
+
+    <footer>
+      <button id="settings-btn" class="btn-text">⚙️ Settings</button>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

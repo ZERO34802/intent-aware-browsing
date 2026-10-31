@@ -1,0 +1,22 @@
+spring.application.name=backend
+
+#database connection properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/productivity_extension
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.datasource.username=postgres
+spring.datasource.password=YOUR_DATABASE_PASSWORD
+
+# JPA/Hibernate properties
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# Server port
+server.port=8096
+
+# Gemini API Configuration
+# Option 1: Set GEMINI_API_KEY environment variable before starting the server
+# Option 2: Set gemini.api.key below (replace YOUR_GEMINI_API_KEY with your actual key)
+gemini.api.key=YOUR_GEMINI_API_KEY
+gemini.api.url=https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent
